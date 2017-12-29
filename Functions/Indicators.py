@@ -33,7 +33,8 @@ model = linear_model.LinearRegression()
 
 model_fit = model.fit(X=X, y=Y)
 
-mr = Y - model_fit.coef_ * X
+mr = Y - model_fit.coef_ * X.
+
 
 lrm = (model_fit.coef_ * X) + model_fit.intercept_
 
