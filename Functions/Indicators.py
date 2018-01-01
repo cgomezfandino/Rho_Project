@@ -8,8 +8,6 @@ import seaborn as sns
 import statsmodels.tsa.stattools as ts
 
 
-
-
 cols = ['CloseAsk','HighAsk','LowAsk','OpenAsk','volume']
 df = pd.read_table(r'D:\Rho_Project\Oanda\EUR_USD_H4_15-17.csv',sep=',')
 df.index = df.time
