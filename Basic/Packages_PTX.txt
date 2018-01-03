@@ -1,0 +1,32 @@
+---
+zipline
+
+github: https://github.com/quantopian/zipline
+install: conda install -c Quantopian zipline 
+---
+Oanda
+
+github: https://github.com/oanda/v20-python
+https://fxtrade.oanda.com/demo-account/tpa/personal_token
+install: pip install v20
+API: 7eef45f19d8113b5cf02ce4e3fdd5dd9-851458f5bdbb980871c964cc5433b645
+id: 101-004-5238032-001
+user:cgomezfandino
+psw:Success8d*
+
+---
+Quandl
+install: pip install quandl
+
+---
+Eikon Thomsom Reuters
+Install: Pip install eikon
+
+---
+mpl_finance
+pip install https://github.com/matplotlib/mpl_finance/archive/master.zip
+
+---
+
+
+
