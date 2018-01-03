@@ -9,6 +9,7 @@ df = pd.read_csv(r'..\Oanda\EUR_USD_H4_15-17.csv', sep=',')
 cols = ['time', 'OpenAsk', 'CloseAsk', 'HighAsk', 'LowAsk', 'volume']
 df = df[cols]
 df['percent'] = np.log(df.CloseAsk / df.CloseAsk.shift(1))
+
 df.time = pd.to_datetime(df.time)
 
 df = df[:100]
