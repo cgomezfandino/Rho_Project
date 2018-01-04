@@ -10,9 +10,11 @@ cols = ['time', 'OpenAsk', 'CloseAsk', 'HighAsk', 'LowAsk', 'volume']
 df = df[cols]
 df['percent'] = np.log(df.CloseAsk / df.CloseAsk.shift(1))
 
+df['SMA'] = df.CloseAsk.rolling(10).mean()
+
 df.time = pd.to_datetime(df.time)
 
-df = df[:100]
+df = df[:200]
 
 inc = df.CloseAsk > df.OpenAsk
 dec = df.OpenAsk > df.CloseAsk
@@ -22,14 +24,14 @@ source = ColumnDataSource(df)
 
 
 
-hover = HoverTool(tooltips=[
-    ("date", "@time"),
-    ("open", "@OpenAsk"),
-    ("close", "@CloseAsk"),
-    ("percent", "@percent"),
-])
+# hover = HoverTool(tooltips=[
+#     ("date", "@time"),
+#     ("open", "@OpenAsk"),
+#     ("close", "@CloseAsk"),
+#     ("percent", "@percent"),
+# ])
 
-TOOLS = ["pan,wheel_zoom,box_zoom,reset,save",hover]
+TOOLS = ["pan,wheel_zoom,box_zoom,reset,save"]
 
 p = figure(x_axis_type="datetime", tools=TOOLS, plot_width=1000, title = "EUR_USD Candlestick")
 
@@ -42,6 +44,7 @@ p.segment(df.index, df.HighAsk, df.index, df.LowAsk, color="black")
 p.vbar(df.index[inc], w, df.OpenAsk[inc], df.CloseAsk[inc], color="white", line_color="black")
 p.vbar(df.index[dec], w, df.OpenAsk[dec], df.CloseAsk[dec], color="black", line_color="black")
 
+p.line(df.index, df.SMA)
 
 output_file("candlestick.html", title="candlestick.py example")
 
