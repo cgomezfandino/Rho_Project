@@ -20,6 +20,18 @@ inc = df.CloseAsk > df.OpenAsk
 dec = df.OpenAsk > df.CloseAsk
 w = 0.5
 
+
+df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
+df['Envolvente'] = np.nan
+
+# Calculo Envolvente
+
+for i in range(0,len(df)-1):
+    if df.incDec.iloc[i+1]==1:
+        df['Envolvente'].iloc[i+1]=np.where((df.incDec.iloc[i]==-1 and df.OpenAsk.iloc[i+1]<=df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i+1]> df.OpenAsk.iloc[i]),1,np.nan)
+    else:
+        df['Envolvente'].iloc[i+1] =np.where((df.incDec.iloc[i]==1 and df.OpenAsk.iloc[i + 1] >= df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i + 1] < df.OpenAsk.iloc[i]), 1, np.nan)
+
 source = ColumnDataSource(df)
 
 
@@ -45,6 +57,7 @@ p.vbar(df.index[inc], w, df.OpenAsk[inc], df.CloseAsk[inc], color="white", line_
 p.vbar(df.index[dec], w, df.OpenAsk[dec], df.CloseAsk[dec], color="black", line_color="black")
 
 p.line(df.index, df.SMA)
+# p.circle(df.index, df.engulfing)
 
 output_file("candlestick.html", title="candlestick.py example")
 
