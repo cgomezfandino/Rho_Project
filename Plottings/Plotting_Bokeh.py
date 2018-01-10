@@ -3,7 +3,11 @@ import pandas as pd
 import numpy as np
 from bokeh.plotting import figure, output_file, show, ColumnDataSource
 from bokeh.models import HoverTool
+import time
 # https://bokeh.pydata.org/en/latest/docs/user_guide/annotations.html
+
+
+start = time.time()
 
 df = pd.read_csv(r'..\Oanda\EUR_USD_H4_15-17.csv', sep=',')
 cols = ['time', 'OpenAsk', 'CloseAsk', 'HighAsk', 'LowAsk', 'volume']
@@ -14,7 +18,7 @@ df['SMA'] = df.CloseAsk.rolling(10).mean()
 
 df.time = pd.to_datetime(df.time)
 
-df = df[:200]
+# df = df[:200]
 
 inc = df.CloseAsk > df.OpenAsk
 dec = df.OpenAsk > df.CloseAsk
@@ -22,15 +26,20 @@ w = 0.5
 
 
 df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
+
 df['Envolvente'] = np.nan
 
+df['Envolvente']= np.where(((df.incDec.shift(1) == -1) & (df.OpenAsk <= df.CloseAsk.shift(1)) & (df.CloseAsk > df.OpenAsk.shift(1))), 1, np.nan)
 
-# Calculo Envolvente
-for i in range(0,len(df)-1):
-    if df.incDec.iloc[i+1]==1:
-        df['Envolvente'].iloc[i+1]=np.where((df.incDec.iloc[i]==-1 and df.OpenAsk.iloc[i+1]<=df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i+1]> df.OpenAsk.iloc[i]),1,np.nan)
-    else:
-        df['Envolvente'].iloc[i+1] =np.where((df.incDec.iloc[i]==1 and df.OpenAsk.iloc[i + 1] >= df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i + 1] < df.OpenAsk.iloc[i]), 1, np.nan)
+df['Envolvente']= np.where(((df.incDec.shift(1) == 1) & (df.OpenAsk >= df.CloseAsk.shift(1)) & (df.CloseAsk < df.OpenAsk.shift(1))), 1, df['Envolvente'])
+
+
+# Calculo Envolvente con bucles for
+# for i in range(0,len(df)-1):
+#     if df.incDec.iloc[i+1]==1:
+#         df['Envolvente'].iloc[i+1]=np.where((df.incDec.iloc[i]==-1 and df.OpenAsk.iloc[i+1]<=df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i+1]> df.OpenAsk.iloc[i]),1,np.nan)
+#     else:
+#         df['Envolvente'].iloc[i+1] =np.where((df.incDec.iloc[i]==1 and df.OpenAsk.iloc[i + 1] >= df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i + 1] < df.OpenAsk.iloc[i]), 1, np.nan)
 
 source = ColumnDataSource(df)
 
@@ -62,3 +71,5 @@ p.circle(df.index, df.LowAsk * df.Envolvente)
 output_file("candlestick.html", title="candlestick.py example")
 
 show(p)  # open a browser
+
+print("%3.2f Seconds" %(time.time() - start))

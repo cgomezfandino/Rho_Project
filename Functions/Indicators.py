@@ -10,26 +10,17 @@ import statsmodels.tsa.stattools as ts
 
 
 def engulfing(df):
-
     df['Envolvente'] = np.nan
-    df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
-
-    for i in range(0, len(df) - 1):
-        if df.incDec.iloc[i + 1] == 1:
-            df['Envolvente'].iloc[i + 1] =np.where((df.incDec.iloc[i] == -1 and df.OpenAsk.iloc[i + 1] <=
-                                                     df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i + 1] > df.OpenAsk.iloc[
-                                                         i]), 1, np.nan)
-        else:
-            df['Envolvente'].iloc[i + 1] =np.where((df.incDec.iloc[i] == 1 and df.OpenAsk.iloc[i + 1] >=
-                                                     df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i + 1] < df.OpenAsk.iloc[
-                                                         i]), 1, np.nan)
-    return df
+    df['Envolvente'] = np.where(((df.incDec.shift(1) == -1) & (df.OpenAsk <= df.CloseAsk.shift(1)) & (df.CloseAsk > df.OpenAsk.shift(1))), 1,np.nan)
+    df['Envolvente'] = np.where(((df.incDec.shift(1) == 1) & (df.OpenAsk >= df.CloseAsk.shift(1)) & (df.CloseAsk < df.OpenAsk.shift(1))), 1, df['Envolvente'])
+    return df.Envolvente
 
 
 if __name__ == '__main__':
-    df_ = pd.read_table(r'D:\Rho_Project\Oanda\EUR_USD_H4_15-17.csv', sep=',')
-    df_ = engulfing(df_[:200])
-    print(df_)
+    df = pd.read_table(r'D:\Rho_Project\Oanda\EUR_USD_H4_15-17.csv', sep=',')
+    df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
+    df['Envolvente'] = engulfing(df)
+    print(df)
 
 
 

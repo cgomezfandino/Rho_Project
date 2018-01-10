@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import Functions.Indicators
 
 # Create an object config
 config = ConfigParser()
@@ -125,6 +126,8 @@ class Momentum_Backtester(object):
                              'h': 'HighAsk', 'o': 'OpenAsk'}, inplace=True)
 
         data['returns'] = np.log(data['CloseAsk'] / data['CloseAsk'].shift(1))
+
+        data['Envolvente'] = Indicators.engulfing(df)
 
         self.asset = data
 
