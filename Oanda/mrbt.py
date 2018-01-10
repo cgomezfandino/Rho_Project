@@ -196,6 +196,11 @@ class MRBT_Backtester(object):
 
             asset['strategy_%i' %i] = asset['position_%i' %i].shift(1) * asset['returns']
 
+
+            num_long = len(asset[asset['position_20'] == 1])
+            num_short = len(asset[asset['position_20'] == -1])
+            num_total_position = num_long + num_short
+
             ##
             asset['lstrategy_%i' % i] = asset['strategy_%i' % i] * self.lvrage
             self.toplot_hist.append('lstrategy_%i' % i)
@@ -296,18 +301,18 @@ class MRBT_Backtester(object):
         # plt.hist(self.results['creturns_p'])
         plt.show()
 
-    # def plot_mr(self):
-    #
-    #     if self.results is None:
-    #         print('No results to plot yet. Run a strategy.')
-    #
-    #     title = 'Mean Reverting (%i) Backtesting - %s ' % (self.SMA, self.symbol)
-    #     self.results[['distance']].plot(title=title, figsize=(10, 6))
-    #     plt.axhline(self.threshold, color='r')
-    #     plt.axhline(-self.threshold, color='r')
-    #     plt.axhline(0, color='r')
-    #     # self.results[['creturns_p', 'cstrategy_p']].plot(title=title, figsize=(10, 6))
-    #     plt.show()
+    def plot_mr(self):
+
+        if self.results is None:
+            print('No results to plot yet. Run a strategy.')
+
+        # title = 'Mean Reverting (%i) Backtesting - %s ' % (self.SMA.value, self.symbol)
+        self.results[['distance_20']].plot(title='20', figsize=(10, 6))
+        plt.axhline(self.threshold, color='r')
+        plt.axhline(-self.threshold, color='r')
+        plt.axhline(0, color='r')
+        # self.results[['creturns_p', 'cstrategy_p']].plot(title=title, figsize=(10, 6))
+        plt.show()
 
 
     def plot_bstmr(self):
@@ -338,8 +343,8 @@ class MRBT_Backtester(object):
 
 if __name__ == '__main__':
     mrbt = MRBT_Backtester('EUR_USD', '2015-01-01', '2017-01-01', lvrage=10)
-    print(mrbt.run_strategy(SMA=[x for x in range(20,220,20)],threshold_std= 1.5))
+    print(mrbt.run_strategy(SMA= [20],threshold_std= 1.5)) #[x for x in range(20,220,20)]
     mrbt.plot_strategy()
-    # mrbt.plot_mr()
+    mrbt.plot_mr()
     mrbt.plot_bstmr()
     mrbt.hist_returns()

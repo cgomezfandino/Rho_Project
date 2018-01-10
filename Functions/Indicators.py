@@ -10,16 +10,19 @@ import statsmodels.tsa.stattools as ts
 
 
 def engulfing(df):
+
+    df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
     df['Envolvente'] = np.nan
     df['Envolvente'] = np.where(((df.incDec.shift(1) == -1) & (df.OpenAsk <= df.CloseAsk.shift(1)) & (df.CloseAsk > df.OpenAsk.shift(1))), 1,np.nan)
     df['Envolvente'] = np.where(((df.incDec.shift(1) == 1) & (df.OpenAsk >= df.CloseAsk.shift(1)) & (df.CloseAsk < df.OpenAsk.shift(1))), 1, df['Envolvente'])
-    return df.Envolvente
+    # return df.Envolvente
 
 
 if __name__ == '__main__':
     df = pd.read_table(r'D:\Rho_Project\Oanda\EUR_USD_H4_15-17.csv', sep=',')
-    df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
-    df['Envolvente'] = engulfing(df)
+    # df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
+    # df['Envolvente'] = engulfing(df)
+    print(engulfing(df))
     print(df)
 
 
