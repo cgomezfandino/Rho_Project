@@ -1,442 +1,463 @@
-from math import pi
+__author__ = 'cgomezfandino@gmail.com'
+
+import datetime as dt
+import v20
+from configparser import ConfigParser
 import pandas as pd
-from bokeh.plotting import figure, show, output_file
-from bokeh.sampledata.stocks import MSFT
-
-"""
-FXCM Trading RESTful API example.
-"""
-import json
-import time
-import requests
-from socketIO_client import SocketIO
-from prompt_toolkit import prompt
-from threading import Thread
-import signal
-import sys
-import io
-from datetime import datetime
-
-socketIO = None
-UPDATES = {}
-SYMBOLS = {}
-COLLECTIONS = None
-ACCESS_TOKEN = "8fbaf10ac4df43389248eaa2a543497b307fab1b"
-TRADING_API_URL = 'https://api-demo.fxcm.com:443'
-WEBSOCKET_PORT = 443
-
-list = ['Offer', 'Account', 'Order', 'OpenPosition', 'Summary', 'Properties', 'ClosedPosition']
-order_list = []
-logFile = "H:/Projects/RESTAPI-master/nodejs/PythonLog.txt"
-
-
-def timestamp():
-    output = str(datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3])
-    return output
-
-
-def logging(mess, t):
-    ts = timestamp()
-
-    with io.FileIO(logFile, "a") as file:
-        file.write('\n' + ts + ": " + t + " ==>" + '\n')
-        for key in mess:
-            file.write(str(key) + " - " + str(mess[key]) + '\n')
-
-
-def request_processor(method, params):
-    """ Trading server request help function. """
-
-    headers = {
-        'User-Agent': 'request',
-        'Authorization': bearer_access_token,
-        'Accept': 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    rresp = requests.get(TRADING_API_URL + method, headers=headers, params=params)
-    if rresp.status_code == 200:
-        data = rresp.json()
-        if data["response"]["executed"] is True:
-            return True, data
-        return False, data["response"]["error"]
-    else:
-        return False, rresp.status_code
-
-
-def post_request_processor(method, params):
-    """ Trading server request help function. """
-
-    headers = {
-        'User-Agent': 'request',
-        'Authorization': bearer_access_token,
-        'Accept': 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    rresp = requests.post(TRADING_API_URL + method, headers=headers, data=params)
-    if rresp.status_code == 200:
-        data = rresp.json()
-        if data["response"]["executed"] is True:
-            return True, data
-        return False, data["response"]["error"]
-    else:
-        return False, rresp.status_code
-
-
-def create_bearer_token(t, s):
-    bt = "Bearer " + s + t
-    return bt
-
-
-def on_price_update(msg):
-    md = json.loads(msg)
-    SYMBOLS[md["Symbol"]] = md
-    print(SYMBOLS, "SYMBOLS")
-    # logging(SYMBOLS, "SYMBOLS")
-
-
-def on_message(msg):
-    message = json.loads(msg)
-    UPDATES[message["t"]] = message
-    print(UPDATES, "UPDATES")
-    # logging(UPDATES, "UPDATES")
-
-
-def on_error(ws, error):
-    print(error)
-
-
-def on_close():
-    print('Websocket closed.')
-
-
-def on_connect():
-    ### Get models
-    status, response = request_processor('/trading/get_model', {'models': list})
-    if status is True:
-        COLLECTIONS = response
-        print("*" * 50)
-        print(COLLECTIONS["accounts"])
-        print("*" * 50)
-    else:
-        print(status)
-        print("Error processing request /trading/get_model: " + str(response))
-    ### Subscribe message updates
-    status, response = post_request_processor('/trading/subscribe', {'models': order_list})
-    if status is True:
-        for item in order_list:
-            socketIO.on(item, on_message)
-    else:
-        print("Error processing request: /trading/subscribe: " + response)
-
-    thr = Thread(target=cli, args=(1, COLLECTIONS))
-    try:
-        thr.setDaemon(True)
-        thr.start()
-        socketIO.wait()
-    except (KeyboardInterrupt, SystemExit):
-        thr.join(0)
-        sys.exit(1)
-
-
-def subscribe_prices(symbol):
-    status, response = post_request_processor('/subscribe', {'pairs': symbol})
-    if status is True:
-        socketIO.on(symbol, on_price_update)
-    else:
-        print("Error processing request: /subscribe: " + response)
-
-
-def unsubscribe_prices(symbol):
-    status, response = post_request_processor('/unsubscribe', {'pairs': symbol})
-    if status is True:
-        socketIO.on(symbol, on_price_update)
-    else:
-        print("Error processing request: /unsubscribe: " + response)
-
-
-def cli(args, COLLECTIONS):
-    while True:
-        try:
-            inp = prompt(u'> ')
-        except KeyboardInterrupt:
-            print("Press Ctrl+c again to quit.")
-            sys.exit(1)
-        if not inp:
-            continue
-        try:
-            if len(inp) > 3 and inp[0:3] == 'run':
-                cmd = json.loads(inp[4:])
-                command = cmd["c"]
-                if command == 'book':
-                    for symbol in SYMBOLS:
-                        price = SYMBOLS[symbol]
-                        print(price)
-
-                elif command == 'show':
-                    if cmd["opt"] == 'offers':
-                        for offer in COLLECTIONS['offers']:
-                            ###print ('{}, {}, {}, {}, {}'.format(offer['currency'], offer['sell'], offer['buy'], offer['offerId'], offer['ratePrecision']))
-                            print(offer)
-
-                    elif cmd["opt"] == 'orders':
-                        for order in COLLECTIONS['orders']:
-                            print(order)
-
-                    elif cmd["opt"] == 'updates':
-                        for obj in UPDATES:
-                            print(obj)
-
-                    elif cmd["opt"] == 'accounts':
-                        for obj in COLLECTIONS['accounts']:
-                            print(obj)
-
-                    elif cmd["opt"] == 'open_positions':
-                        for obj in COLLECTIONS['open_positions']:
-                            print(obj)
-
-                    elif cmd["opt"] == 'closed_positions':
-                        for obj in COLLECTIONS['closed_positions']:
-                            print(obj)
-
-                    elif cmd["opt"] == 'summary':
-                        for obj in COLLECTIONS['summary']:
-                            print(obj)
-
-                    elif cmd["opt"] == 'properties':
-                        for obj in COLLECTIONS['properties']:
-                            print(obj)
-
-                    elif cmd["opt"] == 'LeverageProfile':
-                        for obj in COLLECTIONS['LeverageProfile']:
-                            print(obj)
-
-                elif command == 'subscribe':
-                    for symbol in cmd["opt"]:
-                        subscribe_prices(symbol)
-
-                elif command == 'unsubscribe':
-                    for symbol in cmd["opt"]:
-                        unsubscribe_prices(symbol)
-
-                elif command == 'market_order':
-                    status, response = post_request_processor('/trading/open_trade', {
-                        'account_id': cmd['account_id'],
-                        'symbol': cmd['symbol'],
-                        'side': cmd['side'],
-                        'amount': cmd['amount'],
-                        'at_market': 0,
-                        'order_type': 'AtMarket',
-                        'time_in_force': cmd['time_in_force']
-                    })
-                    if status is True:
-                        print('market_order has been executed: {}'.format(response))
-                    else:
-                        print('market_order execution error: {}'.format(response))
-
-                elif command == 'market_range':
-                    status, response = post_request_processor('/trading/open_trade', {
-                        'account_id': cmd['account_id'],
-                        'symbol': cmd['symbol'],
-                        'side': cmd['side'],
-                        'amount': cmd['amount'],
-                        'order_type': 'MarketRange',
-                        'at_market': 1
-                    })
-                    if status is True:
-                        print('market_order has been executed: {}'.format(response))
-                    else:
-                        print('market_order execution error: {}'.format(response))
-
-                elif command == 'close_trade':
-                    status, response = post_request_processor('/trading/close_trade', {
-                        'trade_id': cmd['trade_id'],
-                        'rate': 0,
-                        'amount': cmd['amount'],
-                        'at_market': 0,
-                        'order_type': 'AtMarket',
-                        'time_in_force': cmd['time_in_force']
-                    })
-                    if status is True:
-                        print('close_trade has been executed: {}'.format(response))
-                    else:
-                        print('close_trade execution error: {}'.format(response))
-
-                elif command == 'create_entry_order':
-                    status, response = post_request_processor('/trading/create_entry_order', {
-                        'account_id': cmd['account_id'],
-                        'symbol': cmd['symbol'],
-                        'is_buy': cmd['side'],
-                        'rate': cmd['rate'],
-                        'is_in_pips': 0,
-                        'amount': cmd['amount'],
-                        'order_type': 'AtMarket',
-                        'time_in_force': cmd['time_in_force']
-                    })
-                    if status is True:
-                        print('create_entry_order has been executed: {}'.format(response))
-                    else:
-                        print('create_entry_order execution error: {}'.format(response))
-
-                elif command == 'change_order':
-                    status, response = post_request_processor('/trading/change_order', {
-                        'order_id': cmd['order_id'],
-                        'rate': cmd['rate'],
-                        'range': cmd['range'],
-                        'amount': cmd['amount'],
-                        'trailing_step': cmd['trailing_step']
-                    })
-                    if status is True:
-                        print('change_order has been executed: {}'.format(response))
-                    else:
-                        print('change_order execution error: {}'.format(response))
-
-                elif command == 'delete_order':
-                    status, response = post_request_processor('/trading/delete_order', {
-                        'order_id': cmd['order_id']
-                    })
-                    if status is True:
-                        print('delete_order has been executed: {}'.format(response))
-                    else:
-                        print('delete_order execution error: {}'.format(response))
-
-                elif command == 'get_instruments':
-                    status, response = request_processor('/trading/get_instruments', {})
-                    if status is True:
-                        print('get_instruments has been executed: {}'.format(response))
-                    else:
-                        print('get_instruments execution error: {}'.format(response))
-
-                elif command == 'simple_oco':
-                    status, response = request_processor('/trading/simple_oco', {
-                        'account_id': cmd['account_id'],
-                        'symbol': cmd['symbol'],
-                        'amount': cmd['amount'],
-                        'time_in_force': cmd['time_in_force'],
-                        'is_buy': cmd['is_buy'],
-                        'rate': cmd['rate'],
-                        'is_buy2': cmd['is_buy2'],
-                        'rate2': cmd['rate2']
-                    })
-                    if status is True:
-                        print('simple_oco has been executed: {}'.format(response))
-                    else:
-                        print('simple_oco execution error: {}'.format(response))
-
-                elif command == 'add_to_oco':
-                    status, response = request_processor('/trading/add_to_oco', {
-                        orderIds: cmd.orderIds,
-                        ocoBulkId: cmd.ocoBulkId
-                    })
-                    if status is True:
-                        print('add_to_oco has been executed: {}'.format(response))
-                    else:
-                        print('add_to_oco execution error: {}'.format(response))
-
-                elif command == 'remove_from_oco':
-                    status, response = request_processor('/trading/remove_from_oco', {
-                        orderIds: cmd.orderIds
-                    })
-                    if status is True:
-                        print('remove_from_oco has been executed: {}'.format(response))
-                    else:
-                        print('remove_from_oco execution error: {}'.format(response))
-
-                elif command == 'edit_oco':
-                    status, response = request_processor('/trading/edit_oco', {
-                        ocoBulkId: cmd.ocoBulkId,
-                        addOrderIds: cmd.addOrderIds,
-                        removeOrderIds: cmd.removeOrderIds
-                    })
-                    if status is True:
-                        print('edit_oco has been executed: {}'.format(response))
-                    else:
-                        print('edit_oco execution error: {}'.format(response))
-
-                elif command == 'change_trade_stop_limit':
-                    status, response = request_processor('/trading/change_trade_stop_limit', {
-                        trade_id: cmd.trade_id,
-                        is_stop: cmd.is_stop,
-                        rate: cmd.rate,
-                        is_in_pips: cmd.is_in_pips,
-                        trailing_step: cmd.trailing_step
-                    })
-                    if status is True:
-                        print('change_trade_stop_limit has been executed: {}'.format(response))
-                    else:
-                        print('change_trade_stop_limit execution error: {}'.format(response))
-
-                elif command == 'change_order_stop_limit':
-                    status, response = request_processor('/trading/change_order_stop_limit', {
-                        order_id: cmd.order_id,
-                        is_stop: cmd.is_stop,
-                        rate: cmd.rate,
-                        is_in_pips: cmd.is_in_pips,
-                        trailing_step: cmd.trailing_step
-                    })
-                    if status is True:
-                        print('change_order_stop_limit has been executed: {}'.format(response))
-                    else:
-                        print('change_order_stop_limit execution error: {}'.format(response))
-
-                elif command == 'change_net_stop_limit':
-                    status, response = request_processor('/trading/change_net_stop_limit', {
-                        account_id: cmd.account_id,
-                        symbol: cmd.symbol,
-                        is_buy: cmd.is_buy,
-                        is_stop: cmd.is_stop,
-                        rate: cmd.rate,
-                        trailing_step: cmd.trailing_step
-                    })
-                    if status is True:
-                        print('change_net_stop_limit has been executed: {}'.format(response))
-                    else:
-                        print('change_net_stop_limit execution error: {}'.format(response))
-
-                elif command == 'close_all_for_symbol':
-                    status, response = request_processor('/trading/close_all_for_symbol', {
-                        account_id: cmd.account_id,
-                        forSymbol: cmd.forSymbol,
-                        symbol: cmd.symbol,
-                        order_type: cmd.order_type,
-                        time_in_force: cmd.time_in_force
-                    })
-                    if status is True:
-                        print('close_all_for_symbol has been executed: {}'.format(response))
-                    else:
-                        print('close_all_for_symbol execution error: {}'.format(response))
-
-                elif command == 'candles':
-                    req = "/" + command + "/" + str(cmd['instrumentid']) + "/" + str(cmd['periodid'])
-                    status, response = request_processor(req, {
-                        'num': cmd['num'],
-                        'from': cmd['from'],
-                        'to': cmd['to']
-                    })
-                    if status is True:
-                        print('has been executed: {}'.format(response))
-                    else:
-                        print('execution error: {}'.format(response))
-
-
-                else:
-                    print("Unknown command: " + command)
-            else:
-                print('Unknown command.')
-        except ValueError:
-            print('Invalid command')
-
-
-### Main
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import Functions.Indicators as ind
+import Functions.Candles_Patterns as candle
+import Plottings.Plotting_Bokeh as bkp
+
+# Create an object config
+config = ConfigParser()
+# Read the config
+config.read("../connection/pyalgo.cfg")
+
+
+class Momentum_Backtester(object):
+    ''' Momentum backtesting strategy:
+    Attributes
+    ==========
+    symbol: str
+        Oanda symbol with which to work with
+    start: str
+        start date for data retrieval
+    end: str
+        end date for data retrieval
+    amount: int, float
+        amount to be invested at the beginning
+    tc: float
+        proportional transaction costs (e.g. 0.3% = 0.003) per trade
+    sufix: str
+
+    timeFrame:
+        Candle TimeFrame
+
+    Methods
+    =========
+    get_data:
+        retrieves and prepares the base data set
+    run_strategy:
+        runs the backtest for the momentum-based strategy
+    plot_strategy:
+        plots the performance of the strategy compared to the symbol
+    '''
+
+    def __init__(self, symbol, start, end, amount=10000, tc=0.000, lvrage=1, sufix='.000000000Z', timeFrame='H4',
+                 price='A'):
+
+        '''
+        symbol:
+                SYmbol
+        :param start:
+        :param end:
+        :param amount:
+        :param tc:
+        :param sufix:
+        :param timeFrame:
+        :param price:
+        '''
+
+        self.symbol = symbol  # EUR_USD
+        # self.start = start
+        # self.end = end
+        self.amount = amount
+        self.tc = tc
+        self.lvrage = lvrage
+        self.suffix = sufix
+        self.timeFrame = timeFrame
+        self.price = price
+        self.start = dt.datetime.combine(pd.to_datetime(start), dt.time(9, 00))
+        self.end = dt.datetime.combine(pd.to_datetime(end), dt.time(16, 00))
+        # This string suffix is needed to conform to the Oanda API requirements regarding start and end times.
+        self.fromTime = self.start.isoformat('T') + self.suffix
+        self.toTime = self.end.isoformat('T') + self.suffix
+        self.results = None
+        self.colors = sns.hls_palette(14)
+
+        self.toplot_c = ['creturns_c']
+        self.toplot_p = ['creturns_p']
+        self.toplot_hist = ['returns']
+
+        self.ctx = v20.Context(
+            'api-fxpractice.oanda.com',
+            443,
+            True,
+            application='sample_code',
+            token=config['oanda_v20']['access_token'],
+            datetime_format='RFC3339')
+        self.get_data()
+
+    def get_data(self):
+
+        res = self.ctx.instrument.candles(
+            instrument=self.symbol,
+            fromTime=self.fromTime,
+            toTime=self.toTime,
+            granularity=self.timeFrame,
+            price=self.price)
+
+        # data.keys()
+
+        raw = res.get('candles')
+
+        raw = [cs.dict() for cs in raw]
+
+        for cs in raw:
+            cs.update(cs['ask'])
+            del cs['ask']
+
+        data = pd.DataFrame(raw)
+
+        data['time'] = pd.to_datetime(data['time'], unit='ns')
+
+        data = data.set_index('time')
+
+        data.index = pd.DatetimeIndex(data.index)
+
+        # print data.info()
+
+        cols = ['c', 'l', 'h', 'o']
+
+        data[cols] = data[cols].astype('float64')
+
+        data.rename(columns={'c': 'CloseAsk', 'l': 'LowAsk',
+                             'h': 'HighAsk', 'o': 'OpenAsk'}, inplace=True)
+
+        data['returns'] = np.log(data['CloseAsk'] / data['CloseAsk'].shift(1))
+
+        data['incDec'] = candle.candles_bull_bear(data)
+
+        data['Envolvente'] = candle.candles_engulfing_pattern(data)
+
+        self.asset = data
+
+    def run_strategy(self, momentum=1):
+
+        '''
+        This function run a momentum backtest.
+
+        :param momentum:
+        ================
+        Number of lags you want to to test for momuntum strategy
+
+        :return:
+        ================
+        The backtest returns the following values:
+        aperf_c: Absolute Strategy performance in Cash
+        aperf_p: Absolute Strategy performance in Percentage
+        operf_c: Out-/underperformance Of strategy in Cash
+        operf_p: Out-/underperformance Of strategy in Percentage
+        mdd_c: Maximum Drawdown in Cash
+        mdd_p:Maximum Drawdown in Percentage
+       '''
+
+        asset = self.asset.copy()
+        self.momentum = momentum
+        # self.str_rtrn = ['returns']
+        # self.drawdown = []
+        # self.cumrent = []
+
+        # Cumulative returns without laverage
+        asset['creturns_c'] = self.amount * asset['returns'].cumsum().apply(np.exp)
+        asset['creturns_p'] = asset['returns'].cumsum().apply(np.exp)
+
+        # Cumulative returns with laverage
+        # In Cash
+        asset['lcreturns_c'] = self.amount * asset['returns'].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+        # In Percentage
+        asset['lcreturns_p'] = asset['returns'].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+        # Cum Returns in cash
+        asset['lcmreturns_c'] = asset['lcreturns_c'].cummax()
+        # Cum Returns in Percentage
+        asset['lcmreturns_p'] = asset['lcreturns_p'].cummax()
+        # MDD in cash
+        asset['ddreturns_c'] = asset['lcmreturns_c'] - asset['lcreturns_c']
+        # MDD in Percentage
+        asset['ddreturns_p'] = asset['lcmreturns_p'] - asset['lcreturns_p']
+
+        dicti = {'Momentum Strategies': {}}
+        x = []
+        y = []
+        z = []
+
+        for i in momentum:
+
+
+            asset['positions_mmt_%i' % i] = np.sign(asset['returns'].rolling(i).mean())
+
+            #incorporando a la estrategia velas engilfing con el momentum
+            asset['position_%i' % i] = asset['positions_mmt_%i' % i] * asset['Envolvente']
+
+            asset['position_%i' % i] = asset['position_%i' % i].fillna(0)
+
+            asset['strategy_%i' % i] = asset['position_%i' % i].shift(1) * asset['returns']
+
+
+
+
+            asset['lstrategy_%i' % i] = asset['strategy_%i' % i] * self.lvrage
+            self.toplot_hist.append('lstrategy_%i' % i)
+
+            ## determinate when a trade takes places (long or short)
+            trades = asset['position_%i' % i].diff().fillna(0) != 0
+
+            ## subtracting transaction cost from return when trade takes place
+            asset['lstrategy_%i' % i][trades] -= self.tc
+
+            ## Cumulative returns in Cash
+            # asset['cstrategy_c_%i' % i] = self.amount * asset['strategy_%i' % i].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+            asset['cstrategy_c_%i' % i] = self.amount * asset['lstrategy_%i' % i].cumsum().apply(np.exp)
+
+            ## Cumulative returns in percentage
+            # asset['cstrategy_p_%i' % i] = asset['strategy_%i' % i].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+            asset['cstrategy_p_%i' % i] = asset['lstrategy_%i' % i].cumsum().apply(np.exp)
+
+            ## Max Cummulative returns in cash
+            asset['cmstrategy_c_%i' % i] = asset['cstrategy_c_%i' % i].cummax()
+
+            ## Max Cummulative returns in percentage
+            asset['cmstrategy_p_%i' % i] = asset['cstrategy_p_%i' % i].cummax()
+
+            ## Max Drawdown un Cash
+            asset['ddstrategy_c_%i' % i] = asset['cmstrategy_c_%i' % i] - asset['cstrategy_c_%i' % i]
+
+            ## Max Drawdown in Percentage
+            asset['ddstrategy_p_%i' % i] = asset['cmstrategy_p_%i' % i] - asset['cstrategy_p_%i' % i]
+
+            ## Adding values that we wanna plot
+            self.toplot_c.append('cstrategy_c_%i' % i)
+            self.toplot_p.append('cstrategy_p_%i' % i)
+
+            ## save asset df into self.results
+            self.results = asset
+
+            ## Final calculations for return
+
+            ## absolute Strategy performance in Cash:
+            aperf_c = self.results['cstrategy_c_%i' % i].ix[-1]
+            ## absolute Strategy performance in Percentage:
+            aperf_p = self.results['cstrategy_p_%i' % i].ix[-1]
+            ## Out-/underperformance Of strategy in Cash
+            operf_c = aperf_c - self.results['creturns_c'].ix[-1]
+            ## Out-/underperformance Of strategy in Percentage
+            operf_p = aperf_p - self.results['creturns_p'].ix[-1]
+
+            ## Maximum Drawdown in Cash
+            mdd_c = self.results['ddstrategy_c_%i' % i].max()
+            ## Maximum Drawdown in Percentage
+            mdd_p = self.results['ddstrategy_p_%i' % i].max()
+
+            keys = ['aperf_c_%i' % i, 'aperf_p_%i' % i, 'operf_c_%i' % i, 'operf_p_%i' % i, 'mdd_c_%i' % i,
+                    'mdd_p_%i' % i]
+            values = ['%.2f' % np.round(aperf_c, 2), '%.2f' % np.round(aperf_p, 2), '%.2f' % np.round(operf_c, 2),
+                      '%.2f' % np.round(operf_p, 2), '%.2f' % np.round(mdd_c, 2), '%.2f' % np.round(mdd_p, 2)]
+
+            res = dict(zip(keys, values))
+
+            dicti['Momentum Strategies']['strategy_%i' % i] = res
+
+            x.append(i)
+            y.append(aperf_p)
+            z.append(mdd_p)
+
+        self.x = x  # momentums
+        self.y = y  # final returns
+        self.z = z  # mdd
+
+        return dicti
+
+    def run_strategy_2_data(self, momentum=1):
+
+        '''
+        This function run a momentum backtest.
+
+        :param momentum:
+        ================
+        Number of lags you want to to test for momuntum strategy
+
+        :return:
+        ================
+        The backtest returns the following values:
+        aperf_c: Absolute Strategy performance in Cash
+        aperf_p: Absolute Strategy performance in Percentage
+        operf_c: Out-/underperformance Of strategy in Cash
+        operf_p: Out-/underperformance Of strategy in Percentage
+        mdd_c: Maximum Drawdown in Cash
+        mdd_p:Maximum Drawdown in Percentage
+       '''
+
+        asset = self.asset.copy()
+        self.momentum = momentum
+        # self.str_rtrn = ['returns']
+        # self.drawdown = []
+        # self.cumrent = []
+
+        # Cumulative returns without laverage
+        asset['creturns_c'] = self.amount * asset['returns'].cumsum().apply(np.exp)
+        asset['creturns_p'] = asset['returns'].cumsum().apply(np.exp)
+
+        # Cumulative returns with laverage
+        # In Cash
+        asset['lcreturns_c'] = self.amount * asset['returns'].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+        # In Percentage
+        asset['lcreturns_p'] = asset['returns'].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+        # Cum Returns in cash
+        asset['lcmreturns_c'] = asset['lcreturns_c'].cummax()
+        # Cum Returns in Percentage
+        asset['lcmreturns_p'] = asset['lcreturns_p'].cummax()
+        # MDD in cash
+        asset['ddreturns_c'] = asset['lcmreturns_c'] - asset['lcreturns_c']
+        # MDD in Percentage
+        asset['ddreturns_p'] = asset['lcmreturns_p'] - asset['lcreturns_p']
+
+        dicti = {'Momentum Strategies': {}}
+        x = []
+        y = []
+        z = []
+
+        for i in momentum:
+
+
+            asset['positions_mmt_%i' % i] = np.sign(asset['returns'].rolling(i).mean())
+
+            #incorporando a la estrategia velas engilfing con el momentum
+            asset['position_%i' % i] = asset['positions_mmt_%i' % i] * asset['Envolvente']
+
+            asset['position_%i' % i] = asset['position_%i' % i].fillna(0)
+
+            asset['strategy_%i' % i] = asset['position_%i' % i].shift(1) * asset['returns']
+
+
+
+
+            asset['lstrategy_%i' % i] = asset['strategy_%i' % i] * self.lvrage
+            self.toplot_hist.append('lstrategy_%i' % i)
+
+            ## determinate when a trade takes places (long or short)
+            trades = asset['position_%i' % i].diff().fillna(0) != 0
+
+            ## subtracting transaction cost from return when trade takes place
+            asset['lstrategy_%i' % i][trades] -= self.tc
+
+            ## Cumulative returns in Cash
+            # asset['cstrategy_c_%i' % i] = self.amount * asset['strategy_%i' % i].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+            asset['cstrategy_c_%i' % i] = self.amount * asset['lstrategy_%i' % i].cumsum().apply(np.exp)
+
+            ## Cumulative returns in percentage
+            # asset['cstrategy_p_%i' % i] = asset['strategy_%i' % i].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
+            asset['cstrategy_p_%i' % i] = asset['lstrategy_%i' % i].cumsum().apply(np.exp)
+
+            ## Max Cummulative returns in cash
+            asset['cmstrategy_c_%i' % i] = asset['cstrategy_c_%i' % i].cummax()
+
+            ## Max Cummulative returns in percentage
+            asset['cmstrategy_p_%i' % i] = asset['cstrategy_p_%i' % i].cummax()
+
+            ## Max Drawdown un Cash
+            asset['ddstrategy_c_%i' % i] = asset['cmstrategy_c_%i' % i] - asset['cstrategy_c_%i' % i]
+
+            ## Max Drawdown in Percentage
+            asset['ddstrategy_p_%i' % i] = asset['cmstrategy_p_%i' % i] - asset['cstrategy_p_%i' % i]
+
+            ## Adding values that we wanna plot
+            self.toplot_c.append('cstrategy_c_%i' % i)
+            self.toplot_p.append('cstrategy_p_%i' % i)
+
+            ## save asset df into self.results
+            self.results = asset
+
+            ## Final calculations for return
+
+            ## absolute Strategy performance in Cash:
+            aperf_c = self.results['cstrategy_c_%i' % i].ix[-1]
+            ## absolute Strategy performance in Percentage:
+            aperf_p = self.results['cstrategy_p_%i' % i].ix[-1]
+            ## Out-/underperformance Of strategy in Cash
+            operf_c = aperf_c - self.results['creturns_c'].ix[-1]
+            ## Out-/underperformance Of strategy in Percentage
+            operf_p = aperf_p - self.results['creturns_p'].ix[-1]
+
+            ## Maximum Drawdown in Cash
+            mdd_c = self.results['ddstrategy_c_%i' % i].max()
+            ## Maximum Drawdown in Percentage
+            mdd_p = self.results['ddstrategy_p_%i' % i].max()
+
+            keys = ['aperf_c_%i' % i, 'aperf_p_%i' % i, 'operf_c_%i' % i, 'operf_p_%i' % i, 'mdd_c_%i' % i,
+                    'mdd_p_%i' % i]
+            values = ['%.2f' % np.round(aperf_c, 2), '%.2f' % np.round(aperf_p, 2), '%.2f' % np.round(operf_c, 2),
+                      '%.2f' % np.round(operf_p, 2), '%.2f' % np.round(mdd_c, 2), '%.2f' % np.round(mdd_p, 2)]
+
+            res = dict(zip(keys, values))
+
+            dicti['Momentum Strategies']['strategy_%i' % i] = res
+
+            x.append(i)
+            y.append(aperf_p)
+            z.append(mdd_p)
+
+        self.x = x  # momentums
+        self.y = y  # final returns
+        self.z = z  # mdd
+
+        return asset
+
+    def plot_strategy(self):
+
+        # self.results = self.run_strategy()
+        if self.results is None:
+            print('No results to plot yet. Run a strategy.')
+
+        title = 'Momentum Backtesting - %s \n %s ' % (self.symbol, self.timeFrame)
+        self.results[self.toplot_p].plot(title=title, figsize=(10, 6), color=self.colors)  # Percentage
+        # self.results[self.toplot_c].plot(title=title, figsize=(10, 6), color=self.colors) #Cash
+        plt.ylabel('Rentabilidad %')
+        plt.show()
+
+    def hist_returns(self):
+
+        if self.results is None:
+            print('No results to plot yet. Run a strategy.')
+        title = 'Histogram Returns - Momentum Backtesting - %s \n %s' % (self.symbol, self.timeFrame)
+        self.results[self.toplot_hist].plot.hist(title=title, color=self.colors, figsize=(10, 6), alpha=0.5, bins=30)
+        # plt.hist(self.results['creturns_p'])
+        plt.show()
+
+    def plot_bstmom(self):
+
+        if self.results is None:
+            print('No results to plot yet. Run a strategy.')
+        title = 'All Momentum Strategies Final Returns - %s \n %s ' % (self.symbol, self.timeFrame)
+
+        # fig, ax1 = plt.subplots()
+        # ax1.plot(self.x,self.y, 'b-', alpha = 0.5)
+        # ax1.set_ylabel('Final Returns', color='b')
+        # ax1.tick_params('y', colors='b')
+        # ax2 = ax1.twinx()
+        # ax2.plot(self.x,self.z, 'r--')
+        # ax2.set_ylabel('Max.Drawdown', color='r')
+        # ax2.tick_params('y', colors='r')
+        # fig.tight_layout()
+        # plt.legend()
+
+        plt.plot(self.x, self.y, 'b-o', alpha=0.5)
+        plt.plot(self.x, self.z, 'r--o', alpha=0.5)
+        plt.title(title)
+        plt.legend(['Final Returns', 'Maximum Drawdown'])
+        plt.xlabel('Momentums')
+        plt.ylabel('Returns/MDD')
+        plt.show()
+
 
 if __name__ == '__main__':
-    # signal.getsignal(signal.SIGINT, exit_gracefully)
-
-    COLLECTIONS = {}
-    socketIO = SocketIO(TRADING_API_URL, WEBSOCKET_PORT,
-                        params={'access_token': ACCESS_TOKEN, 'agent': "leiwang-rest-api"})
-    # print (socketIO._engineIO_session.id)
-    bearer_access_token = create_bearer_token(ACCESS_TOKEN, socketIO._engineIO_session.id)
-    print(bearer_access_token)
-    socketIO.on('disconnec', on_close)
-    socketIO.on('connect', on_connect)
-    socketIO.wait()
+    mombt = Momentum_Backtester('EUR_USD', start='2015-01-01', end='2017-01-01', lvrage=10)  # EUR_USD, AUD_JPY
+    print(mombt.run_strategy(momentum=[x for x in range(20, 220, 20)]))
+    strat = mombt.run_strategy_2_data(momentum=[x for x in range(20, 220, 20)])
+    position_cols = [col for col in strat.columns if 'position_' in col]
+    bkp.bokeh_Plotting(strat, positions=position_cols)
+    mombt.plot_strategy()
+    mombt.plot_bstmom()
+    mombt.hist_returns()

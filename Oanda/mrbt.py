@@ -345,6 +345,6 @@ if __name__ == '__main__':
     mrbt = MRBT_Backtester('EUR_USD', '2015-01-01', '2017-01-01', lvrage=10)
     print(mrbt.run_strategy(SMA= [20],threshold_std= 1.5)) #[x for x in range(20,220,20)]
     mrbt.plot_strategy()
-    mrbt.plot_mr()
+    # mrbt.plot_mr()
     mrbt.plot_bstmr()
     mrbt.hist_returns()

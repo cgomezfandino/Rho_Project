@@ -9,21 +9,24 @@ import statsmodels.tsa.stattools as ts
 
 
 
-def engulfing(df):
+def sma(df, price = 'CloseAsk', periods = '50'):
 
-    df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
-    df['Envolvente'] = np.nan
-    df['Envolvente'] = np.where(((df.incDec.shift(1) == -1) & (df.OpenAsk <= df.CloseAsk.shift(1)) & (df.CloseAsk > df.OpenAsk.shift(1))), 1,np.nan)
-    df['Envolvente'] = np.where(((df.incDec.shift(1) == 1) & (df.OpenAsk >= df.CloseAsk.shift(1)) & (df.CloseAsk < df.OpenAsk.shift(1))), 1, df['Envolvente'])
-    # return df.Envolvente
+    """
+
+    :param df:
+    :param price: OpenAsk, HighAsk, LowAsk, CloseAsk
+    :param periods:
+    :return: SMA
+    """
+    price_ = price
+    periods_ = periods
+
+    df['SMA_%i' %periods] = df[price].rolling(periods_).mean()
+
+    return df['SMA_%i' %periods]
 
 
-if __name__ == '__main__':
-    df = pd.read_table(r'D:\Rho_Project\Oanda\EUR_USD_H4_15-17.csv', sep=',')
-    # df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
-    # df['Envolvente'] = engulfing(df)
-    print(engulfing(df))
-    print(df)
+
 
 
 

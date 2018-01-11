@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import Functions.Indicators as ind
+import Functions.Candles_Patterns as candle
 
 # Create an object config
 config = ConfigParser()
@@ -127,7 +128,9 @@ class Momentum_Backtester(object):
 
         data['returns'] = np.log(data['CloseAsk'] / data['CloseAsk'].shift(1))
 
-        data['Envolvente'] = ind.engulfing(data)
+        data['incDec'] = candle.candles_bull_bear(data)
+
+        data['Envolvente'] = candle.candles_engulfing_pattern(data)
 
         self.asset = data
 
@@ -184,6 +187,8 @@ class Momentum_Backtester(object):
         for i in momentum:
 
             asset['position_%i' % i] = np.sign(asset['returns'].rolling(i).mean())
+
+
             asset['strategy_%i' % i] = asset['position_%i' % i].shift(1) * asset['returns']
 
             asset['lstrategy_%i' % i] = asset['strategy_%i' % i] * self.lvrage

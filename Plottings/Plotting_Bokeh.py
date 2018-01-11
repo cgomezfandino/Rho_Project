@@ -4,72 +4,88 @@ import numpy as np
 from bokeh.plotting import figure, output_file, show, ColumnDataSource
 from bokeh.models import HoverTool
 import time
+import Functions.Indicators as ind
+import Functions.Candles_Patterns as candle
+# import SandBox.Pruebas as sb
+
 # https://bokeh.pydata.org/en/latest/docs/user_guide/annotations.html
 
 
-start = time.time()
+def bokeh_Plotting(df, periodos = 10, positions = None):
 
-df = pd.read_csv(r'..\Oanda\EUR_USD_H4_15-17.csv', sep=',')
-cols = ['time', 'OpenAsk', 'CloseAsk', 'HighAsk', 'LowAsk', 'volume']
-df = df[cols]
-df['percent'] = np.log(df.CloseAsk / df.CloseAsk.shift(1))
+    if positions is None:
+        print('No results to plot yet. Run a strategy.')
 
-df['SMA'] = df.CloseAsk.rolling(10).mean()
+    for position in positions:
 
-df.time = pd.to_datetime(df.time)
+        start = time.time()
+        cols = ['OpenAsk', 'CloseAsk', 'HighAsk', 'LowAsk', 'volume', position]
+        df_plot = df[cols]
+        # df_plot['percent'] = np.log(df_plot.CloseAsk / df_plot.CloseAsk.shift(1))
 
-# df = df[:200]
+        df_plot[position] = np.where(df_plot[position] == 0, np.nan, df_plot[position])
 
-inc = df.CloseAsk > df.OpenAsk
-dec = df.OpenAsk > df.CloseAsk
-w = 0.5
+        df_plot[position] = np.where(df_plot[position] == -1, 1, df_plot[position])
+
+        df_plot.index = range(0,len(df_plot))
+        # Cálculo de Media Movil
+        periods_ = periodos
+        ind.sma(df_plot, periods = periods_)
+
+        df_plot['time'] = df_plot.index.values
+
+        df_plot.time = pd.to_datetime(df_plot.time)
+
+        df_plot = df_plot[:200]
+
+        inc = df_plot.CloseAsk > df_plot.OpenAsk
+        dec = df_plot.OpenAsk > df_plot.CloseAsk
+        w = 0.5
+
+        # Bull or Bear Candle
+        candle.candles_bull_bear(df_plot)
+        # Patron Envolvente
+        candle.candles_engulfing_pattern(df_plot)
+
+        source = ColumnDataSource(df_plot)
 
 
-df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
+        # hover = HoverTool(tooltips=[
+        #     ("date", "@time"),
+        #     ("open", "@OpenAsk"),
+        #     ("close", "@CloseAsk"),
+        #     ("percent", "@percent"),
+        # ])
 
-df['Envolvente'] = np.nan
+        TOOLS = ["pan,wheel_zoom,box_zoom,reset,save"]
 
-df['Envolvente']= np.where(((df.incDec.shift(1) == -1) & (df.OpenAsk <= df.CloseAsk.shift(1)) & (df.CloseAsk > df.OpenAsk.shift(1))), 1, np.nan)
-
-df['Envolvente']= np.where(((df.incDec.shift(1) == 1) & (df.OpenAsk >= df.CloseAsk.shift(1)) & (df.CloseAsk < df.OpenAsk.shift(1))), 1, df['Envolvente'])
-
-
-# Calculo Envolvente con bucles for
-# for i in range(0,len(df)-1):
-#     if df.incDec.iloc[i+1]==1:
-#         df['Envolvente'].iloc[i+1]=np.where((df.incDec.iloc[i]==-1 and df.OpenAsk.iloc[i+1]<=df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i+1]> df.OpenAsk.iloc[i]),1,np.nan)
-#     else:
-#         df['Envolvente'].iloc[i+1] =np.where((df.incDec.iloc[i]==1 and df.OpenAsk.iloc[i + 1] >= df.CloseAsk.iloc[i] and df.CloseAsk.iloc[i + 1] < df.OpenAsk.iloc[i]), 1, np.nan)
-
-source = ColumnDataSource(df)
+        p = figure(x_axis_type = "datetime", tools = TOOLS, plot_width = 1000, title = "EUR_USD Candlestick - Momentum %s" %position)
 
 
+        # map dataframe indices to date strings and use as label overrides
+        p.xaxis.major_label_overrides = {i: date.strftime('%b %d') for i, date in enumerate(pd.to_datetime(df_plot["time"]))}
+        p.xaxis.major_label_orientation = pi/4
+        p.grid.grid_line_alpha = 0.5
 
-# hover = HoverTool(tooltips=[
-#     ("date", "@time"),
-#     ("open", "@OpenAsk"),
-#     ("close", "@CloseAsk"),
-#     ("percent", "@percent"),
-# ])
+        p.segment(df_plot.index, df_plot.HighAsk, df_plot.index, df_plot.LowAsk, color="black")
 
-TOOLS = ["pan,wheel_zoom,box_zoom,reset,save"]
+        # Plotting Candles
+        p.vbar(df_plot.index[inc], w, df_plot.OpenAsk[inc], df_plot.CloseAsk[inc], color="white", line_color="black")
+        p.vbar(df_plot.index[dec], w, df_plot.OpenAsk[dec], df_plot.CloseAsk[dec], color="black", line_color="black")
 
-p = figure(x_axis_type="datetime", tools=TOOLS, plot_width=1000, title = "EUR_USD Candlestick")
+        # Plotting SMA
+        p.line(df_plot.index, df_plot['SMA_%i' %periods_])
 
-# map dataframe indices to date strings and use as label overrides
-p.xaxis.major_label_overrides = {i: date.strftime('%b %d') for i, date in enumerate(pd.to_datetime(df["time"]))}
-p.xaxis.major_label_orientation = pi/4
-p.grid.grid_line_alpha=0.5
+        # Plotting Engulfing Pattern
+        p.circle(df_plot.index, df_plot.LowAsk * df_plot.Envolvente)
 
-p.segment(df.index, df.HighAsk, df.index, df.LowAsk, color="black")
-p.vbar(df.index[inc], w, df.OpenAsk[inc], df.CloseAsk[inc], color="white", line_color="black")
-p.vbar(df.index[dec], w, df.OpenAsk[dec], df.CloseAsk[dec], color="black", line_color="black")
+        p.triangle(df_plot.index, df_plot.HighAsk * df_plot[position], color="firebrick")
+        output_file("candlestick.html", title="candlestick.py example")
+        show(p)  # open a browser
+        print("%3.2f Seconds" %(time.time() - start))
 
-p.line(df.index, df.SMA)
-p.circle(df.index, df.LowAsk * df.Envolvente)
+if __name__ == '__main__':
 
-output_file("candlestick.html", title="candlestick.py example")
+    df = pd.read_csv(r'..\Oanda\EUR_USD_H4_15-17.csv', sep=',')
+    bokeh_Plotting(df, positions=['Position'])
 
-show(p)  # open a browser
-
-print("%3.2f Seconds" %(time.time() - start))
