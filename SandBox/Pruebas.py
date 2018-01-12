@@ -268,142 +268,7 @@ class Momentum_Backtester(object):
         self.y = y  # final returns
         self.z = z  # mdd
 
-        return dicti
-
-    def run_strategy_2_data(self, momentum=1):
-
-        '''
-        This function run a momentum backtest.
-
-        :param momentum:
-        ================
-        Number of lags you want to to test for momuntum strategy
-
-        :return:
-        ================
-        The backtest returns the following values:
-        aperf_c: Absolute Strategy performance in Cash
-        aperf_p: Absolute Strategy performance in Percentage
-        operf_c: Out-/underperformance Of strategy in Cash
-        operf_p: Out-/underperformance Of strategy in Percentage
-        mdd_c: Maximum Drawdown in Cash
-        mdd_p:Maximum Drawdown in Percentage
-       '''
-
-        asset = self.asset.copy()
-        self.momentum = momentum
-        # self.str_rtrn = ['returns']
-        # self.drawdown = []
-        # self.cumrent = []
-
-        # Cumulative returns without laverage
-        asset['creturns_c'] = self.amount * asset['returns'].cumsum().apply(np.exp)
-        asset['creturns_p'] = asset['returns'].cumsum().apply(np.exp)
-
-        # Cumulative returns with laverage
-        # In Cash
-        asset['lcreturns_c'] = self.amount * asset['returns'].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
-        # In Percentage
-        asset['lcreturns_p'] = asset['returns'].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
-        # Cum Returns in cash
-        asset['lcmreturns_c'] = asset['lcreturns_c'].cummax()
-        # Cum Returns in Percentage
-        asset['lcmreturns_p'] = asset['lcreturns_p'].cummax()
-        # MDD in cash
-        asset['ddreturns_c'] = asset['lcmreturns_c'] - asset['lcreturns_c']
-        # MDD in Percentage
-        asset['ddreturns_p'] = asset['lcmreturns_p'] - asset['lcreturns_p']
-
-        dicti = {'Momentum Strategies': {}}
-        x = []
-        y = []
-        z = []
-
-        for i in momentum:
-
-
-            asset['positions_mmt_%i' % i] = np.sign(asset['returns'].rolling(i).mean())
-
-            #incorporando a la estrategia velas engilfing con el momentum
-            asset['position_%i' % i] = asset['positions_mmt_%i' % i] * asset['Envolvente']
-
-            asset['position_%i' % i] = asset['position_%i' % i].fillna(0)
-
-            asset['strategy_%i' % i] = asset['position_%i' % i].shift(1) * asset['returns']
-
-
-
-
-            asset['lstrategy_%i' % i] = asset['strategy_%i' % i] * self.lvrage
-            self.toplot_hist.append('lstrategy_%i' % i)
-
-            ## determinate when a trade takes places (long or short)
-            trades = asset['position_%i' % i].diff().fillna(0) != 0
-
-            ## subtracting transaction cost from return when trade takes place
-            asset['lstrategy_%i' % i][trades] -= self.tc
-
-            ## Cumulative returns in Cash
-            # asset['cstrategy_c_%i' % i] = self.amount * asset['strategy_%i' % i].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
-            asset['cstrategy_c_%i' % i] = self.amount * asset['lstrategy_%i' % i].cumsum().apply(np.exp)
-
-            ## Cumulative returns in percentage
-            # asset['cstrategy_p_%i' % i] = asset['strategy_%i' % i].cumsum().apply(lambda x: x * self.lvrage).apply(np.exp)
-            asset['cstrategy_p_%i' % i] = asset['lstrategy_%i' % i].cumsum().apply(np.exp)
-
-            ## Max Cummulative returns in cash
-            asset['cmstrategy_c_%i' % i] = asset['cstrategy_c_%i' % i].cummax()
-
-            ## Max Cummulative returns in percentage
-            asset['cmstrategy_p_%i' % i] = asset['cstrategy_p_%i' % i].cummax()
-
-            ## Max Drawdown un Cash
-            asset['ddstrategy_c_%i' % i] = asset['cmstrategy_c_%i' % i] - asset['cstrategy_c_%i' % i]
-
-            ## Max Drawdown in Percentage
-            asset['ddstrategy_p_%i' % i] = asset['cmstrategy_p_%i' % i] - asset['cstrategy_p_%i' % i]
-
-            ## Adding values that we wanna plot
-            self.toplot_c.append('cstrategy_c_%i' % i)
-            self.toplot_p.append('cstrategy_p_%i' % i)
-
-            ## save asset df into self.results
-            self.results = asset
-
-            ## Final calculations for return
-
-            ## absolute Strategy performance in Cash:
-            aperf_c = self.results['cstrategy_c_%i' % i].ix[-1]
-            ## absolute Strategy performance in Percentage:
-            aperf_p = self.results['cstrategy_p_%i' % i].ix[-1]
-            ## Out-/underperformance Of strategy in Cash
-            operf_c = aperf_c - self.results['creturns_c'].ix[-1]
-            ## Out-/underperformance Of strategy in Percentage
-            operf_p = aperf_p - self.results['creturns_p'].ix[-1]
-
-            ## Maximum Drawdown in Cash
-            mdd_c = self.results['ddstrategy_c_%i' % i].max()
-            ## Maximum Drawdown in Percentage
-            mdd_p = self.results['ddstrategy_p_%i' % i].max()
-
-            keys = ['aperf_c_%i' % i, 'aperf_p_%i' % i, 'operf_c_%i' % i, 'operf_p_%i' % i, 'mdd_c_%i' % i,
-                    'mdd_p_%i' % i]
-            values = ['%.2f' % np.round(aperf_c, 2), '%.2f' % np.round(aperf_p, 2), '%.2f' % np.round(operf_c, 2),
-                      '%.2f' % np.round(operf_p, 2), '%.2f' % np.round(mdd_c, 2), '%.2f' % np.round(mdd_p, 2)]
-
-            res = dict(zip(keys, values))
-
-            dicti['Momentum Strategies']['strategy_%i' % i] = res
-
-            x.append(i)
-            y.append(aperf_p)
-            z.append(mdd_p)
-
-        self.x = x  # momentums
-        self.y = y  # final returns
-        self.z = z  # mdd
-
-        return asset
+        return dicti, asset
 
     def plot_strategy(self):
 
@@ -454,8 +319,8 @@ class Momentum_Backtester(object):
 
 if __name__ == '__main__':
     mombt = Momentum_Backtester('EUR_USD', start='2015-01-01', end='2017-01-01', lvrage=10)  # EUR_USD, AUD_JPY
-    print(mombt.run_strategy(momentum=[x for x in range(20, 220, 20)]))
-    strat = mombt.run_strategy_2_data(momentum=[x for x in range(20, 220, 20)])
+    strat, asset = mombt.run_strategy(momentum=[x for x in range(20, 220, 20)])
+    print(start)
     position_cols = [col for col in strat.columns if 'position_' in col]
     bkp.bokeh_Plotting(strat, positions=position_cols)
     mombt.plot_strategy()

@@ -19,3 +19,4 @@ def candles_bull_bear(df):
 
     df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
     return df.incDec
+
