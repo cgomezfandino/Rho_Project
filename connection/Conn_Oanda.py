@@ -20,6 +20,7 @@ class Initialize(object):
         self.end = dt.datetime.combine(pd.to_datetime(end), dt.time(16, 00))
         self.fromTime = self.start.isoformat('T') + self.suffix
         self.toTime = self.end.isoformat('T') + self.suffix
+        self.data = []
 
         config = ConfigParser()
         config.read(r'../connection/pyalgo.cfg')
@@ -32,7 +33,7 @@ class Initialize(object):
             token=config['oanda_v20']['access_token'],
             datetime_format='RFC3339')
 
-        self.get_data()
+        # self.get_data()
 
     def get_data(self):
 
@@ -68,5 +69,7 @@ class Initialize(object):
         data.rename(columns={'c': 'CloseAsk', 'l': 'LowAsk',
                              'h': 'HighAsk', 'o': 'OpenAsk'}, inplace=True)
 
-        return data
+        self.data = data
+
+        return self.data
 

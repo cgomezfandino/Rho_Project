@@ -9,7 +9,7 @@ import statsmodels.tsa.stattools as ts
 
 
 
-def sma(df, price = 'CloseAsk', periods = '50'):
+def sma(df, price = 'CloseAsk', periods = 50):
 
     """
 
@@ -18,12 +18,10 @@ def sma(df, price = 'CloseAsk', periods = '50'):
     :param periods:
     :return: SMA
     """
-    price_ = price
-    periods_ = periods
 
-    df['SMA_%i' %periods] = df[price].rolling(periods_).mean()
+    SMA = df[price].rolling(periods).mean()
 
-    return df['SMA_%i' %periods]
+    return SMA
 
 
 
