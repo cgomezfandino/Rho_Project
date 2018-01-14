@@ -331,7 +331,7 @@ class Momentum_Backtester(object):
 if __name__ == '__main__':
     mombt = Momentum_Backtester('GBP_USD', start='2015-01-01', end='2017-01-01') #EUR_USD, AUD_JPY
     print(mombt.run_strategy(momentum=[x for x in range(20,220,20)], halfKC=True)) # True: half KellyCreiterion, False: KellyCrieterion
-    # print(mombt.dataReturn())
+    print(mombt.dataReturn())
     mombt.plot_strategy()
     mombt.plot_bstmom()
     mombt.hist_returns()

@@ -130,7 +130,7 @@ class Momentum_Backtester(object):
 
         data['incDec'] = candle.candles_bull_bear(data)
 
-        data['Envolvente'] = candle.candles_engulfing_pattern(data)
+        data['engulf'] = candle.candles_engulfing_pattern(data)
 
         self.asset = data
 

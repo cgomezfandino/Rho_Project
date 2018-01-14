@@ -13,6 +13,14 @@ import Functions.Candles_Patterns as candle
 
 def bokeh_Plotting(df, periodos = 10, positions = None):
 
+    '''
+
+    :param df: DataFrame
+    :param periodos: Calculate MA to Plot
+    :param positions: position_20, position_40 ... position_n
+    :return: Bokeh's Plots
+    '''
+
     if positions is None:
         print('No results to plot yet. Run a strategy.')
 
@@ -28,9 +36,10 @@ def bokeh_Plotting(df, periodos = 10, positions = None):
         df_plot[position] = np.where(df_plot[position] == -1, 1, df_plot[position])
 
         df_plot.index = range(0,len(df_plot))
+
         # Cálculo de Media Movil
         periods_ = periodos
-        ind.sma(df_plot, periods = periods_)
+        df_plot['SMA_%i' %periods_] = ind.sma(df_plot, periods = periods_)
 
         df_plot['time'] = df_plot.index.values
 
@@ -43,9 +52,9 @@ def bokeh_Plotting(df, periodos = 10, positions = None):
         w = 0.5
 
         # Bull or Bear Candle
-        candle.candles_bull_bear(df_plot)
+        df_plot['incDec'] = candle.candles_bull_bear(df_plot)
         # Patron Envolvente
-        candle.candles_engulfing_pattern(df_plot)
+        df_plot['engulf'] = candle.candles_engulfing_pattern(df_plot)
 
         source = ColumnDataSource(df_plot)
 
@@ -77,7 +86,7 @@ def bokeh_Plotting(df, periodos = 10, positions = None):
         p.line(df_plot.index, df_plot['SMA_%i' %periods_])
 
         # Plotting Engulfing Pattern
-        p.circle(df_plot.index, df_plot.LowAsk * df_plot.Envolvente)
+        p.circle(df_plot.index, df_plot.LowAsk * df_plot.engulf)
 
         p.triangle(df_plot.index, df_plot.HighAsk * df_plot[position], color="firebrick")
         output_file("candlestick.html", title="candlestick.py example")
@@ -87,5 +96,5 @@ def bokeh_Plotting(df, periodos = 10, positions = None):
 if __name__ == '__main__':
 
     df = pd.read_csv(r'..\Oanda\EUR_USD_H4_15-17.csv', sep=',')
-    bokeh_Plotting(df, positions=['Position'])
+    bokeh_Plotting(df, positions=10)
 

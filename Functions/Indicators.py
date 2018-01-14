@@ -8,6 +8,25 @@ import seaborn as sns
 import statsmodels.tsa.stattools as ts
 
 
+def KellyCriterion(df, roll = 100, r = 0.0225, halfKC = True):
+
+    df_ = df.copy()
+
+    if halfKC is True:
+        df_['meanRoll'] = df_['returns'].rolling(roll).mean() * 6 * 252
+        df_['stdRoll'] = df_['returns'].rolling(roll).std() * 6 * 252 ** 0.5
+        df_['KC'] = np.where( ((df_['meanRoll'] - r) / df_['stdRoll']**2)/2 < 1, 1, ((df_['meanRoll'] - r) / df_['stdRoll']**2)/2 )
+        df_['KC'].fillna(1,inplace =True)
+    else:
+        df_['meanRoll'] = df_['returns'].rolling(roll).mean() * 6 * 252
+        df_['stdRoll'] = df_['returns'].rolling(roll).std() * 6 * 252 ** 0.5
+        df_['KC'] = np.where( ((df_['meanRoll'] - r) / df_['stdRoll']**2) < 1, 1, ((df_['meanRoll'] - r) / df_['stdRoll']**2) )
+        df_['KC'].fillna(1,inplace =True)
+
+
+    return df_['KC']
+
+
 
 def sma(df, price = 'CloseAsk', periods = 50):
 
@@ -22,6 +41,52 @@ def sma(df, price = 'CloseAsk', periods = 50):
     SMA = df[price].rolling(periods).mean()
 
     return SMA
+
+def momentum(df, momentum = 20, amount = 10000, transactionCost = 0.000):
+
+    df_ = df.copy()
+
+    # Buy and Hold
+    # In Cash
+    df_['creturns_c'] = amount * df_['returns'].cumsum().apply(np.exp)
+    # In Percentage
+    df_['creturns_p'] = df_['returns'].cumsum().apply(np.exp)
+
+
+    ## Applying the Strategy
+
+    # Getting the strategy
+    df_['position'] = np.sign(df_['returns'].rolling(momentum).mean())
+    df_['strategy'] = df_['position'].shift(1) * df_['returns']
+
+    # Applying the laverage
+    df_['lstrategy'] = df_['strategy'] * df_['KellyCriterion']
+
+    ## determinate when a trade takes places (long or short)
+    trades = df_['position'].diff().fillna(0) != 0
+
+    ## subtracting transaction cost from return when trade takes place
+    df_['lstrategy'][trades] -= transactionCost
+
+    ## Returns in Cash
+    df_['cstrategy_c'] = amount * df_['lstrategy'].cumsum().apply(np.exp)
+
+    ## Returns in percentage
+    df_['cstrategy_p'] = df_['lstrategy'].cumsum().apply(np.exp)
+
+    # ## Max Cummulative returns in cash
+    # df_['cmstrategy_c'] = df_['cstrategy_c'].cummax()
+    #
+    # ## Max Cummulative returns in percentage
+    # df_['cmstrategy_p'] = df_['cstrategy_p'].cummax()
+    #
+    # ## Max Drawdown un Cash
+    # df_['ddstrategy_c'] = df_['cmstrategy_c'] - df_['cstrategy_c']
+    #
+    # ## Max Drawdown in Percentage
+    # df_['ddstrategy_p'] = df_['cmstrategy_p'] - df_['cstrategy_p']
+
+    return df_['cstrategy_p'], df_['cstrategy_c'], df_['position']
 
 
 

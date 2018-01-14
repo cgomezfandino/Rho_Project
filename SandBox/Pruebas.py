@@ -131,7 +131,7 @@ class Momentum_Backtester(object):
 
         data['incDec'] = candle.candles_bull_bear(data)
 
-        data['Envolvente'] = candle.candles_engulfing_pattern(data)
+        data['engulf'] = candle.candles_engulfing_pattern(data)
 
         self.asset = data
 
@@ -190,7 +190,7 @@ class Momentum_Backtester(object):
             asset['positions_mmt_%i' % i] = np.sign(asset['returns'].rolling(i).mean())
 
             #incorporando a la estrategia velas engilfing con el momentum
-            asset['position_%i' % i] = asset['positions_mmt_%i' % i] * asset['Envolvente']
+            asset['position_%i' % i] = asset['positions_mmt_%i' % i] * asset['engulf']
 
             asset['position_%i' % i] = asset['position_%i' % i].fillna(0)
 
@@ -320,9 +320,9 @@ class Momentum_Backtester(object):
 if __name__ == '__main__':
     mombt = Momentum_Backtester('EUR_USD', start='2015-01-01', end='2017-01-01', lvrage=10)  # EUR_USD, AUD_JPY
     strat, asset = mombt.run_strategy(momentum=[x for x in range(20, 220, 20)])
-    print(start)
-    position_cols = [col for col in strat.columns if 'position_' in col]
-    bkp.bokeh_Plotting(strat, positions=position_cols)
+    print(strat)
+    position_cols = [col for col in asset.columns if 'position_' in col]
+    bkp.bokeh_Plotting(asset, positions=position_cols)
     mombt.plot_strategy()
     mombt.plot_bstmom()
     mombt.hist_returns()
