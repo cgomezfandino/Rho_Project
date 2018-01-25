@@ -11,7 +11,7 @@ import Functions.Candles_Patterns as candle
 # https://bokeh.pydata.org/en/latest/docs/user_guide/annotations.html
 
 
-def bokeh_Plotting(df, periodos = 10, positions = None):
+def bokeh_Plotting(df, periodos = 10):
 
     '''
 
@@ -21,77 +21,79 @@ def bokeh_Plotting(df, periodos = 10, positions = None):
     :return: Bokeh's Plots
     '''
 
-    if positions is None:
-        print('No results to plot yet. Run a strategy.')
+    # if positions is None:
+    #     print('No results to plot yet. Run a strategy.')
 
-    for position in positions:
+    # for position in positions:
 
-        start = time.time()
-        cols = ['OpenAsk', 'CloseAsk', 'HighAsk', 'LowAsk', 'volume', position]
-        df_plot = df[cols]
-        # df_plot['percent'] = np.log(df_plot.CloseAsk / df_plot.CloseAsk.shift(1))
+    start = time.time()
+    cols = ['open', 'close', 'high', 'low', 'volume','incDec', 'engulfing', 'SMA_%s' %periodos, 'hammer']
+    df_plot = df[cols]
+    # df_plot['percent'] = np.log(df_plot.CloseAsk / df_plot.CloseAsk.shift(1))
 
-        df_plot[position] = np.where(df_plot[position] == 0, np.nan, df_plot[position])
+    # df_plot[position] = np.where(df_plot[position] == 0, np.nan, df_plot[position])
+    #
+    # df_plot[position] = np.where(df_plot[position] == -1, 1, df_plot[position])
 
-        df_plot[position] = np.where(df_plot[position] == -1, 1, df_plot[position])
+    df_plot.index = range(0,len(df_plot))
 
-        df_plot.index = range(0,len(df_plot))
+    # Cálculo de Media Movil
+    periods_ = periodos
+    df_plot['SMA_%i' %periods_] = ind.sma(df_plot, periods = periods_)
 
-        # Cálculo de Media Movil
-        periods_ = periodos
-        df_plot['SMA_%i' %periods_] = ind.sma(df_plot, periods = periods_)
+    df_plot['time'] = df_plot.index.values
 
-        df_plot['time'] = df_plot.index.values
+    df_plot.time = pd.to_datetime(df_plot.time)
 
-        df_plot.time = pd.to_datetime(df_plot.time)
+    df_plot = df_plot[:200]
 
-        df_plot = df_plot[:200]
+    inc = df_plot.close > df_plot.open
+    dec = df_plot.open > df_plot.close
+    w = 0.5
 
-        inc = df_plot.CloseAsk > df_plot.OpenAsk
-        dec = df_plot.OpenAsk > df_plot.CloseAsk
-        w = 0.5
+    # Bull or Bear Candle
+    # df_plot['incDec'] = candle.candles_bull_bear(df_plot)
+    # Patron Envolvente
+    # df_plot['engulf'] = candle.candles_engulfing_pattern(df_plot)
 
-        # Bull or Bear Candle
-        df_plot['incDec'] = candle.candles_bull_bear(df_plot)
-        # Patron Envolvente
-        df_plot['engulf'] = candle.candles_engulfing_pattern(df_plot)
-
-        source = ColumnDataSource(df_plot)
-
-
-        # hover = HoverTool(tooltips=[
-        #     ("date", "@time"),
-        #     ("open", "@OpenAsk"),
-        #     ("close", "@CloseAsk"),
-        #     ("percent", "@percent"),
-        # ])
-
-        TOOLS = ["pan,wheel_zoom,box_zoom,reset,save"]
-
-        p = figure(x_axis_type = "datetime", tools = TOOLS, plot_width = 1000, title = "EUR_USD Candlestick - Momentum %s" %position)
+    source = ColumnDataSource(df_plot)
 
 
-        # map dataframe indices to date strings and use as label overrides
-        p.xaxis.major_label_overrides = {i: date.strftime('%b %d') for i, date in enumerate(pd.to_datetime(df_plot["time"]))}
-        p.xaxis.major_label_orientation = pi/4
-        p.grid.grid_line_alpha = 0.5
+    # hover = HoverTool(tooltips=[
+    #     ("date", "@time"),
+    #     ("open", "@OpenAsk"),
+    #     ("close", "@CloseAsk"),
+    #     ("percent", "@percent"),
+    # ])
 
-        p.segment(df_plot.index, df_plot.HighAsk, df_plot.index, df_plot.LowAsk, color="black")
+    TOOLS = ["pan,wheel_zoom,box_zoom,reset,save"]
 
-        # Plotting Candles
-        p.vbar(df_plot.index[inc], w, df_plot.OpenAsk[inc], df_plot.CloseAsk[inc], color="white", line_color="black")
-        p.vbar(df_plot.index[dec], w, df_plot.OpenAsk[dec], df_plot.CloseAsk[dec], color="black", line_color="black")
+    p = figure(x_axis_type = "datetime", tools = TOOLS, plot_width = 1000, title = "EUR_USD Candlestick - Momentum") # Falta colocar que momentum es
 
-        # Plotting SMA
-        p.line(df_plot.index, df_plot['SMA_%i' %periods_])
 
-        # Plotting Engulfing Pattern
-        p.circle(df_plot.index, df_plot.LowAsk * df_plot.engulf)
+    # map dataframe indices to date strings and use as label overrides
+    p.xaxis.major_label_overrides = {i: date.strftime('%b %d') for i, date in enumerate(pd.to_datetime(df_plot["time"]))}
+    p.xaxis.major_label_orientation = pi/4
+    p.grid.grid_line_alpha = 0.5
 
-        p.triangle(df_plot.index, df_plot.HighAsk * df_plot[position], color="firebrick")
-        output_file("candlestick.html", title="candlestick.py example")
-        show(p)  # open a browser
-        print("%3.2f Seconds" %(time.time() - start))
+    p.segment(df_plot.index, df_plot.high, df_plot.index, df_plot.low, color="black")
+
+    # Plotting Candles
+    p.vbar(df_plot.index[inc], w, df_plot.open[inc], df_plot.close[inc], color="white", line_color="black")
+    p.vbar(df_plot.index[dec], w, df_plot.open[dec], df_plot.close[dec], color="black", line_color="black")
+
+    # Plotting SMA
+    p.line(df_plot.index, df_plot['SMA_%i' %periods_])
+
+    # Plotting Engulfing Pattern
+    p.triangle(df_plot.index, df_plot.low * df_plot.hammer - 0.00005, color='red', size=5)
+
+    p.circle(df_plot.index, df_plot.low * df_plot.engulfing)
+
+    # p.triangle(df_plot.index, df_plot.high * df_plot[position], color="firebrick")
+    output_file("candlestick.html", title="candlestick.py example")
+    show(p)  # open a browser
+    print("%3.2f Seconds" %(time.time() - start))
 
 if __name__ == '__main__':
 

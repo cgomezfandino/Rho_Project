@@ -10,6 +10,7 @@ import Functions.Indicators as ind
 import Functions.Candles_Patterns as candle
 import connection.Conn_Oanda as conn
 import Plottings.Plotting_Bokeh as bkp
+import talib
 
 
 
@@ -23,21 +24,43 @@ if __name__ == '__main__':
 
     amount = 1000 #Capital Inicial
     SMA= 200 # Moving Average
+    EMA = 200 # Exponential Moving Avg
     momentum = 20
     r = 0.0255 #Risk Free Rate
     roll = 100 #Rolling to calulate the kelly Criterion
     transactionCost = 0.000
 
-    df['SMA_%i' %SMA]= ind.sma(df, periods=SMA)
+    df['SMA_%i' %SMA] = talib.SMA(np.array(df.close), SMA)
+
+
+    # df['EMA_%i' %EMA] = ind.sma(df, periods=EMA)
 
     # Identificacion de velas alcistas y bajistas:
     df['incDec'] = candle.candles_bull_bear(df)
 
     # Indentificacion de velas Envolventes:
-    df['engulf'] = candle.candles_engulfing_pattern(df)
+
+    # https: // github.com / mrjbq7 / ta - lib / blob / master / docs / func_groups / pattern_recognition.md
+
+    # df['engulf'] = candle.candles_engulfing_pattern(df)
+
+    df['engulfing'] = talib.CDLENGULFING(np.array(df.open), np.array(df.high),
+                                         np.array(df.low), np.array(df.close))
+
+    df['engulfing'] = np.abs(df['engulfing'])
+    df['engulfing'] = np.where(df['engulfing']==100, 1, np.nan)
+
+    df['hammer'] = talib.CDLHAMMER(np.array(df.open), np.array(df.high),
+                         np.array(df.low), np.array(df.close))
+
+    df['hammer'] = np.where(df['hammer'] == 100, 1, np.nan)
+
+
+    # comprobacion
+    # df.to_csv(r'../Oanda/prueba.csv', sep=';')
 
     # Calculo de los retornos:
-    df['returns'] = np.log(df['CloseAsk']/df['CloseAsk'].shift(1))
+    df['returns'] = np.log(df['close']/df['close'].shift(1))
 
     # Calculo de apalancamianto: Kelly Criterion
     df['KellyCriterion'] = ind.KellyCriterion(df,roll = roll,r = r,halfKC = True)
@@ -49,7 +72,7 @@ if __name__ == '__main__':
 
 
     # Plotea
-    bkp.bokeh_Plotting(df, 10)
+    bkp.bokeh_Plotting(df, periodos=SMA)
 
     print(df)
 

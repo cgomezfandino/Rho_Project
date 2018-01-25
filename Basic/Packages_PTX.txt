@@ -27,6 +27,9 @@ mpl_finance
 pip install https://github.com/matplotlib/mpl_finance/archive/master.zip
 
 ---
+TA-Lib
+find to install this package
+https://www.lfd.uci.edu/~gohlke/pythonlibs/#ta-lib
 
 
 

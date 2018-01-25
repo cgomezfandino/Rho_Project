@@ -10,13 +10,15 @@ import statsmodels.tsa.stattools as ts
 
 def candles_engulfing_pattern(df):
 
-    df['Envolvente'] = np.nan
-    df['Envolvente'] = np.where(((df.incDec.shift(1) == -1) & (df.OpenAsk <= df.CloseAsk.shift(1)) & (df.CloseAsk > df.OpenAsk.shift(1))), 1,np.nan)
-    df['Envolvente'] = np.where(((df.incDec.shift(1) == 1) & (df.OpenAsk >= df.CloseAsk.shift(1)) & (df.CloseAsk < df.OpenAsk.shift(1))), 1, df['Envolvente'])
-    return df.Envolvente
+    df_ = df.copy()
+    df_['Envolvente'] = np.nan
+    df_['Envolvente'] = np.where(((df.incDec.shift(1) == -1) & (df.open <= df.close.shift(1)) & (df.close > df.open.shift(1))), 1, np.nan)
+    df_['Envolvente'] = np.where(((df.incDec.shift(1) == 1) & (df.open >= df.close.shift(1)) & (df.close < df.open.shift(1))), 1, df_['Envolvente'])
+    return df_.Envolvente
 
 def candles_bull_bear(df):
 
-    df['incDec'] = np.where(df.CloseAsk > df.OpenAsk, 1, -1)
-    return df.incDec
+    df_ = df.copy()
+    df_['incDec'] = np.where(df.close > df.open, 1, -1)
+    return df_.incDec
 

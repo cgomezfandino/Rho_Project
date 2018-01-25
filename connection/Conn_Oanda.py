@@ -65,8 +65,8 @@ class Initialize(object):
 
         data[cols] = data[cols].astype('float64')
 
-        data.rename(columns={'c': 'CloseAsk', 'l': 'LowAsk',
-                             'h': 'HighAsk', 'o': 'OpenAsk'}, inplace=True)
+        data.rename(columns={'c': 'close', 'l': 'low',
+                             'h': 'high', 'o': 'open'}, inplace=True)
 
         return data
 

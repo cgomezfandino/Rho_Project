@@ -28,7 +28,22 @@ def KellyCriterion(df, roll = 100, r = 0.0225, halfKC = True):
 
 
 
-def sma(df, price = 'CloseAsk', periods = 50):
+def sma(df, price = 'close', periods = 50):
+
+    """
+
+    :param df:
+    :param price: open, high, low, close
+    :param periods:
+    :return: SMA
+    """
+
+    SMA = df[price].rolling(periods).mean()
+
+    return SMA
+
+
+def ema(df, price = 'close', periods = 50):
 
     """
 
@@ -38,9 +53,19 @@ def sma(df, price = 'CloseAsk', periods = 50):
     :return: SMA
     """
 
-    SMA = df[price].rolling(periods).mean()
+    df_ = df.copy()
 
-    return SMA
+    df_['SMA'] = df[price].rolling(periods).mean()
+
+    Multiplier = 2/ (periods + 1)
+
+    df_['EMA'].iloc[199] = df_['SMA'].iloc[199]
+
+    EMA = (df_[price] - df_['SMA']) * Multiplier + df_['SMA']
+
+    return EMA
+
+
 
 def momentum(df, momentum = 20, amount = 10000, transactionCost = 0.000):
 
